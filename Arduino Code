@@ -1,0 +1,233 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <LiquidCrystal.h>
+
+char* ssid="Galaxy M31";
+char* pswd="alan1234";
+char* card="0800741C3F5F";
+int cnt=0,chk=0,chk2=21,disp=0;
+String c="a";
+
+struct Players
+{
+  int cash;
+  String cards;
+  String names;
+};
+
+Players P[10];
+
+LiquidCrystal lcd(D2,D3,D5,D6,D7,D8);
+ESP8266WebServer server(80);
+
+void setup() {
+  Serial.begin(9600);
+  lcd.begin(16,1);
+  lcd.clear();
+  Serial.print("Connecting to: ");
+  Serial.println(ssid);
+  WiFi.begin(ssid,pswd);
+  while(WiFi.status()!=WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(1000);  
+  }
+  Serial.print("\nConnected\nIP: ");
+  Serial.println(WiFi.localIP());
+  lcd.print(WiFi.localIP());
+  server.on("/getCardInfo",handleCard);
+  server.on("/newCard",handlenewP);
+  server.on("/Add",handleadd);
+  server.on("/Remove",handleremove);
+  server.on("/clear",handleclear);
+  server.on("/Done",done);
+  server.begin();
+  
+}
+void done()
+{
+  c="a";
+  chk2=20;
+}
+void handleCard()
+{
+  delay(10);
+  int loc=findcard();
+  if(c=="a")
+  {
+      server.send(200,"text/plain",String("Scan Card"));
+  }
+  else if(loc==-1)
+  {
+     server.send(200,"text/plain",String("New Card"));
+     chk2=21;
+  }
+  
+  else
+  {
+    String S=P[loc].names+"?"+P[loc].cash;
+    server.send(200,"text/plain",S);
+    disp=1;
+    chk2=21;
+  }
+  Serial.println("Request Handled");
+}
+
+void handlenewP()
+{
+  String S=server.arg("value");
+  if(cnt>9)
+  server.send(200,"text/plain","Full");
+  else if(c=="a")
+  server.send(200,"text/plain","Scan Card");
+  else
+  {
+    P[cnt].names=S;
+    P[cnt].cash=2510;
+    P[cnt].cards=c;
+    cnt++;
+    server.send(200,"text/plain","Registered");
+    Serial.print("Registered Name: ");Serial.println(S);
+    lcd.clear();
+    lcd.print("Registered");
+  }
+  c="a";
+}
+
+void handleadd()
+{
+  int val=server.arg("value").toInt();
+  int loc=findcard();
+  Serial.println(loc);
+  if(loc==-1)
+  {
+    server.send(200,"text/plain","nocard");
+  }
+  else
+  {
+    P[loc].cash=P[loc].cash+val;
+    server.send(200,"text/plain","Updated");
+    disp=1;
+  }
+}
+
+void handleremove()
+{
+  int val=server.arg("value").toInt();
+  int loc=findcard();
+  Serial.println(loc);
+  if(loc==-1)
+  {
+    server.send(200,"text/plain","nocard");
+  }
+  else
+  {
+    if(P[loc].cash<=val)
+    {
+      server.send(200,"text/plain","Bankrupt");
+    }
+    else
+    {
+      P[loc].cash=P[loc].cash-val;
+      server.send(200,"text/plain","Updated");
+      disp=1;
+    }
+  }
+}
+
+void handleclear()
+{
+  for(int i=0;i<10;i++)
+  {
+    P[i].names="";
+    P[i].cards="";
+    P[i].cash=0;  
+  }
+  server.send(200,"text/plain","Cleared");
+  lcd.clear();
+  lcd.print("Database Cleared");
+  c="a";
+  chk2=0;
+}
+
+int findcard()
+{
+  Serial.print("Searching for: ");Serial.println(c);
+  for(int i=0;i<10;i++)
+  {
+    if(P[i].cards==c)
+    {
+      Serial.print("Card Found at ");Serial.println(i);
+      return i;    
+    }
+  }
+  return -1;
+}
+void loop() {
+  server.handleClient();
+  while(Serial.available()>0)
+  {
+    if(Serial.available()>0)
+    {
+      card[chk]=Serial.read();
+      chk++;
+      delay(10);
+      disp=1;
+    }
+  }
+  
+  if(chk!=0)
+  {
+    if(c==String(card))
+    {
+      c="a";
+      Serial.println("56");
+      lcd.clear();
+      lcd.print("Scan Card");
+    }
+    else
+    {
+      c=String(card);
+      int i=findcard();
+      if(i==-1)
+      {
+        lcd.clear();
+        lcd.print("No Data");
+      }
+      else
+      {
+        if(disp==1)
+        {
+          disp=0;
+          lcd.clear();
+          int i=findcard();
+          lcd.print("Name: "+P[i].names);
+          delay(1000);
+          lcd.clear();
+          delay(50);
+          lcd.print("Cash: ");lcd.print(P[i].cash);
+         }
+      }
+    }
+      chk=0;
+      chk2=0;
+  }
+  if(chk2<20)
+  {
+     delay(500);
+     chk2++;
+  }
+  else if(chk2==20)
+  {
+    chk2++;
+    lcd.clear();
+    lcd.print("Scan Card");
+    c="a";
+  }
+  else
+  {
+    delay(500);
+  }
+  Serial.println(chk2);
+  Serial.println(c);
+}
