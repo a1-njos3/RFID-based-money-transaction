@@ -1,21 +1,25 @@
+//The following code models the credit card based version of the Game 'Monopoly'. 
+//The same code can be modified to satisfy any sort of transaction based model with a central money bank
+//Communication is done over a local network with a dedicated mobile application that makes HTTP requests to the ESP module
+
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <LiquidCrystal.h>
 
-char* ssid="Galaxy M31";
-char* pswd="alan1234";
+char* ssid="WiFi-SSID";
+char* pswd="WiFi-Password";
 char* card="0800741C3F5F";
 int cnt=0,chk=0,chk2=21,disp=0;
 String c="a";
 
-struct Players
+struct Players //A structre is declared for each player with necessary details
 {
   int cash;
   String cards;
   String names;
 };
 
-Players P[10];
+Players P[10]; //An array of structures or player
 
 LiquidCrystal lcd(D2,D3,D5,D6,D7,D8);
 ESP8266WebServer server(80);
@@ -35,6 +39,8 @@ void setup() {
   Serial.print("\nConnected\nIP: ");
   Serial.println(WiFi.localIP());
   lcd.print(WiFi.localIP());
+  
+  //setting up functions to handle server requests
   server.on("/getCardInfo",handleCard);
   server.on("/newCard",handlenewP);
   server.on("/Add",handleadd);
@@ -49,6 +55,8 @@ void done()
   c="a";
   chk2=20;
 }
+
+//Function executed when a card is scanned
 void handleCard()
 {
   delay(10);
@@ -73,6 +81,7 @@ void handleCard()
   Serial.println("Request Handled");
 }
 
+//Executed when the card is new, not registered.
 void handlenewP()
 {
   String S=server.arg("value");
@@ -94,6 +103,7 @@ void handlenewP()
   c="a";
 }
 
+//Excuted to handle addition of money
 void handleadd()
 {
   int val=server.arg("value").toInt();
@@ -111,6 +121,7 @@ void handleadd()
   }
 }
 
+//Executed to handle reduction of money
 void handleremove()
 {
   int val=server.arg("value").toInt();
@@ -135,6 +146,7 @@ void handleremove()
   }
 }
 
+//Executed to clear the database, when the game ends
 void handleclear()
 {
   for(int i=0;i<10;i++)
@@ -150,6 +162,7 @@ void handleclear()
   chk2=0;
 }
 
+//Executed to check if the card is registered
 int findcard()
 {
   Serial.print("Searching for: ");Serial.println(c);
@@ -163,6 +176,8 @@ int findcard()
   }
   return -1;
 }
+
+//Main loop that runs always, checking for any HTTP requests, and to handle the card ID when scanned and call the respective function.
 void loop() {
   server.handleClient();
   while(Serial.available()>0)
